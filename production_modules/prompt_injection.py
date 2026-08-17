@@ -30,6 +30,11 @@ logger = logging.getLogger(__name__)
 
 GUARD_MODEL = os.getenv("DEFAULT_MODEL", "gemini-2.5-flash")
 
+# Same rationale as structured_output.py: bound how long a single call can
+# hang on a slow/flaky connection instead of relying only on the SDK's own
+# retry/backoff (which is what stretched the guard call to ~30s in the logs).
+_REQUEST_TIMEOUT_SECONDS = 30
+
 # ---------------------------------------------------------------------------
 # Structured output schema for the guard LLM
 # ---------------------------------------------------------------------------
@@ -107,7 +112,12 @@ def check_injection(text: str) -> InjectionCheckResult:
     to prevent the main classifier from being called on unvetted content.
     """
     try:
-        llm = ChatGoogleGenerativeAI(model=GUARD_MODEL, temperature=0, seed=0)
+        llm = ChatGoogleGenerativeAI(
+            model=GUARD_MODEL,
+            temperature=0,
+            seed=0,
+            timeout=_REQUEST_TIMEOUT_SECONDS,
+        )
         guard_chain = GUARD_PROMPT | llm.with_structured_output(InjectionJudgement)
         judgement: InjectionJudgement = guard_chain.invoke({"user_input": text})
 

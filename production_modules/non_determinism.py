@@ -19,6 +19,10 @@ from schema import TicketClassification
 
 load_dotenv()
 
+# Same rationale as structured_output.py / prompt_injection.py: bound how
+# long a single call can hang on a slow/flaky connection.
+_REQUEST_TIMEOUT_SECONDS = 30
+
 
 def build_deterministic_llm(model: str = "gemini-2.5-flash", seed: int = 42) -> ChatGoogleGenerativeAI:
     """
@@ -30,6 +34,7 @@ def build_deterministic_llm(model: str = "gemini-2.5-flash", seed: int = 42) -> 
         model=model,
         temperature=0,
         seed=seed,
+        timeout=_REQUEST_TIMEOUT_SECONDS,
     )
 
 
@@ -38,7 +43,11 @@ def build_creative_llm(model: str = "gpt-4o-mini", temperature: float = 0.7) -> 
     Higher temperature for tasks where variation is desirable, e.g.
     generating empathetic reply drafts or brainstorming resolutions.
     """
-    return ChatGoogleGenerativeAI(model=model, temperature=temperature)
+    return ChatGoogleGenerativeAI(
+        model=model,
+        temperature=temperature,
+        timeout=_REQUEST_TIMEOUT_SECONDS,
+    )
 
 
 def classify_ticket(ticket_text: str, llm: ChatGoogleGenerativeAI) -> TicketClassification:

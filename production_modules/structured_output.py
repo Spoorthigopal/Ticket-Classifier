@@ -19,6 +19,11 @@ load_dotenv()
 
 _DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gemini-2.5-flash")
 
+# Bounds how long a single Gemini call can hang before failing. Without this,
+# a slow/flaky (as opposed to fully down) network connection can leave a
+# FastAPI request hanging indefinitely with no clear timeout boundary.
+_REQUEST_TIMEOUT_SECONDS = 30
+
 DEFAULT_SYSTEM_PROMPT = """You are an expert customer support ticket classifier.
 
 RESPOND WITH ONLY THIS JSON FORMAT:
@@ -214,6 +219,7 @@ def classify_with_json_mode(
     llm = ChatGoogleGenerativeAI(
         model=model,
         temperature=0,
+        timeout=_REQUEST_TIMEOUT_SECONDS,
     )
 
     prompt = ChatPromptTemplate.from_messages([
