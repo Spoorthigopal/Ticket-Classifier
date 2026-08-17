@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Support Ticket Classifier</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1117;
+      color: #e2e8f0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #1a1d27;
+      border-bottom: 1px solid #2d3148;
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    header h1 { font-size: 1.25rem; font-weight: 700; color: #a78bfa; }
+    header span { font-size: 0.8rem; color: #64748b; }
+
+    .main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      padding: 1.5rem 2rem;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 768px) {
+      .main { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .panel-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #7c85a6;
+    }
+
+    /* Sample buttons */
+    .samples { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .sample-btn {
+      background: #252a3d;
+      border: 1px solid #3b4268;
+      color: #94a3b8;
+      font-size: 0.75rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .sample-btn:hover { background: #2d3450; border-color: #6366f1; color: #c7d2fe; }
+
+    textarea {
+      width: 100%;
+      flex: 1;
+      min-height: 180px;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 0.92rem;
+      line-height: 1.6;
+      padding: 0.75rem 1rem;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    textarea:focus { border-color: #6366f1; }
+    textarea::placeholder { color: #4b5563; }
+
+    .controls { display: flex; gap: 0.75rem; align-items: center; }
+
+    select {
+      background: #252a3d;
+      border: 1px solid #3b4268;
+      color: #94a3b8;
+      padding: 0.4rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .classify-btn {
+      flex: 1;
+      background: #6366f1;
+      border: none;
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding: 0.6rem 1.5rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .classify-btn:hover { background: #4f46e5; }
+    .classify-btn:active { transform: scale(0.98); }
+    .classify-btn:disabled { background: #374151; cursor: not-allowed; color: #6b7280; }
+
+    /* Result cards */
+    .result-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .card {
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+    }
+    .card-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #4b5563;
+      margin-bottom: 0.3rem;
+    }
+    .card-value {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .card-wide { grid-column: 1 / -1; }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .priority-low    { background: #14532d33; color: #4ade80; border: 1px solid #166534; }
+    .priority-medium { background: #78350f33; color: #fbbf24; border: 1px solid #92400e; }
+    .priority-high   { background: #7c3aed33; color: #c4b5fd; border: 1px solid #6d28d9; }
+    .priority-critical { background: #7f1d1d33; color: #f87171; border: 1px solid #991b1b; }
+
+    .sentiment-positive { background: #14532d33; color: #4ade80; border: 1px solid #166534; }
+    .sentiment-neutral  { background: #1e3a5f33; color: #60a5fa; border: 1px solid #1d4ed8; }
+    .sentiment-negative { background: #78350f33; color: #fbbf24; border: 1px solid #92400e; }
+    .sentiment-angry    { background: #7f1d1d33; color: #f87171; border: 1px solid #991b1b; }
+
+    .confidence-bar-wrap {
+      background: #252a3d;
+      border-radius: 999px;
+      height: 8px;
+      overflow: hidden;
+      margin-top: 0.4rem;
+    }
+    .confidence-bar {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(to right, #6366f1, #a78bfa);
+      transition: width 0.4s ease;
+    }
+
+    /* Status strip */
+    .status-strip {
+      background: #1a1d27;
+      border-top: 1px solid #2d3148;
+      padding: 0.6rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      font-size: 0.78rem;
+      color: #4b5563;
+      flex-wrap: wrap;
+    }
+    .status-item { display: flex; align-items: center; gap: 0.35rem; }
+    .status-item span.label { color: #4b5563; }
+    .status-item span.value { color: #94a3b8; font-weight: 600; }
+    .pii-badge { color: #f87171; font-weight: 700; }
+    .pii-clean { color: #4ade80; font-weight: 700; }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid #6366f155;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-right: 0.4rem;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-msg {
+      background: #7f1d1d22;
+      border: 1px solid #991b1b;
+      color: #f87171;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      color: #374151;
+      gap: 0.5rem;
+      text-align: center;
+      padding: 2rem;
+    }
+    .empty-state svg { opacity: 0.3; }
+    .empty-state p { font-size: 0.85rem; }
+
+    .human-review-flag {
+      background: #78350f33;
+      border: 1px solid #92400e;
+      color: #fbbf24;
+      border-radius: 6px;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      grid-column: 1 / -1;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="22" height="22" fill="none" viewBox="0 0 24 24">
+    <path stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+      d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+  </svg>
+  <h1>Support Ticket Classifier</h1>
+  <span>LangGraph + GPT-4o-mini</span>
+</header>
+
+<div class="main">
+
+  <!-- LEFT: Input Panel -->
+  <div class="panel">
+    <div class="panel-title">Ticket Input</div>
+
+    <div class="samples">
+      <button class="sample-btn" onclick="fillSample(0)">📦 Delayed Delivery</button>
+      <button class="sample-btn" onclick="fillSample(1)">💳 Double Charged</button>
+      <button class="sample-btn" onclick="fillSample(2)">🔐 Login Broken</button>
+    </div>
+
+    <textarea id="ticketText" placeholder="Paste or type a customer support ticket here…"></textarea>
+
+    <div class="controls">
+      <select id="channel">
+        <option value="web_form">Web Form</option>
+        <option value="email">Email</option>
+      </select>
+      <button class="classify-btn" id="classifyBtn" onclick="classify()">Classify Ticket</button>
+    </div>
+  </div>
+
+  <!-- RIGHT: Results Panel -->
+  <div class="panel" id="resultsPanel">
+    <div class="panel-title">Classification Result</div>
+    <div class="empty-state" id="emptyState">
+      <svg width="48" height="48" fill="none" viewBox="0 0 24 24">
+        <path stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+      </svg>
+      <p>Submit a ticket to see the classification result</p>
+    </div>
+    <div class="result-grid" id="resultGrid" style="display:none;"></div>
+  </div>
+
+</div>
+
+<!-- BOTTOM: Status strip -->
+<div class="status-strip" id="statusStrip">
+  <div class="status-item">
+    <span class="label">Tokens</span>
+    <span class="value" id="statusTokens">—</span>
+  </div>
+  <div class="status-item">
+    <span class="label">Cost</span>
+    <span class="value" id="statusCost">—</span>
+  </div>
+  <div class="status-item">
+    <span class="label">PII</span>
+    <span class="value" id="statusPii">—</span>
+  </div>
+  <div class="status-item">
+    <span class="label">Prompt</span>
+    <span class="value" id="statusPrompt">—</span>
+  </div>
+</div>
+
+<script>
+const SAMPLES = [
+  {
+    channel: "web_form",
+    text: "I am absolutely furious! My package was supposed to arrive 5 days ago and it still hasn't shown up. I've been waiting at home all week. This is completely unacceptable. Order #98765. I want an immediate update or a full refund!\nEmail: sanjay@xyzmail.com \nCredit card number: 1234567890123456",
+  },
+  {
+    channel: "email",
+    text: "Subject: Double charge on my account\n\nHello,\n\nI noticed I was charged twice for the same order (#44321) placed on March 15th. Both charges of $89.99 appear on my bank statement. Please refund one of the charges immediately. This is very concerning.\n\nThank you,\nA frustrated customer",
+  },
+  {
+    channel: "web_form",
+    text: "I can't log into my account at all. I keep getting 'Invalid credentials' even though I just reset my password 3 times. I need to access my order history urgently. Please help — I've been locked out for 2 days.",
+  },
+];
+
+function fillSample(index) {
+  const s = SAMPLES[index];
+  document.getElementById("ticketText").value = s.text;
+  document.getElementById("channel").value = s.channel;
+}
+
+function priorityClass(p) {
+  return { low: "priority-low", medium: "priority-medium", high: "priority-high", critical: "priority-critical" }[p] || "";
+}
+function sentimentClass(s) {
+  return { positive: "sentiment-positive", neutral: "sentiment-neutral", negative: "sentiment-negative", angry: "sentiment-angry" }[s] || "";
+}
+function formatCategory(s) {
+  return s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+async function classify() {
+  const text = document.getElementById("ticketText").value.trim();
+  if (!text) { alert("Please enter a ticket."); return; }
+
+  const btn = document.getElementById("classifyBtn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Classifying…';
+
+  document.getElementById("emptyState").style.display = "flex";
+  document.getElementById("resultGrid").style.display = "none";
+
+  try {
+    const resp = await fetch("http://localhost:8000/classify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticket_text: text, channel: document.getElementById("channel").value }),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.detail || resp.statusText);
+    }
+
+    const data = await resp.json();
+    renderResult(data);
+  } catch (e) {
+    document.getElementById("emptyState").innerHTML =
+      `<div class="error-msg">Error: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Classify Ticket";
+  }
+}
+
+function renderResult(d) {
+  const grid = document.getElementById("resultGrid");
+  const confPct = Math.round(d.confidence_score * 100);
+
+  grid.innerHTML = `
+    <div class="card">
+      <div class="card-label">Category</div>
+      <div class="card-value">${formatCategory(d.issue_category)}</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Assigned Team</div>
+      <div class="card-value">${formatCategory(d.assigned_team)}</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Priority</div>
+      <div class="card-value">
+        <span class="badge ${priorityClass(d.priority)}">${d.priority.toUpperCase()}</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-label">Sentiment</div>
+      <div class="card-value">
+        <span class="badge ${sentimentClass(d.user_sentiment)}">${d.user_sentiment.toUpperCase()}</span>
+      </div>
+    </div>
+    <div class="card card-wide">
+      <div class="card-label">Confidence Score — ${confPct}%</div>
+      <div class="confidence-bar-wrap">
+        <div class="confidence-bar" style="width:${confPct}%"></div>
+      </div>
+    </div>
+    <div class="card card-wide">
+      <div class="card-label">Reasoning</div>
+      <div class="card-value" style="font-weight:400;font-size:0.88rem;line-height:1.5">${d.reasoning}</div>
+    </div>
+    ${d.requires_human_review ? '<div class="human-review-flag">⚠ Flagged for human review</div>' : ""}
+    ${d.injection_blocked ? '<div class="human-review-flag" style="color:#f87171;border-color:#991b1b">🚫 Injection attempt blocked</div>' : ""}
+  `;
+
+  // Status strip
+  const cost = d.cost_info;
+  document.getElementById("statusTokens").textContent =
+    cost ? `${cost.input_tokens} in / ${cost.output_tokens} out` : "—";
+  document.getElementById("statusCost").textContent =
+    cost ? `$${cost.total_cost_usd.toFixed(6)}` : "—";
+  document.getElementById("statusPii").innerHTML =
+    d.pii_detected
+      ? '<span class="pii-badge">PII DETECTED</span>'
+      : '<span class="pii-clean">Clean</span>';
+  document.getElementById("statusPrompt").textContent = d.prompt_version || "—";
+
+  document.getElementById("emptyState").style.display = "none";
+  grid.style.display = "grid";
+}
+</script>
+</body>
+</html>
